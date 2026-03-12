@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const mongoose = require("mongoose");
 
 // Get all products
 const getAllProducts = async (req, res) => {
@@ -14,22 +15,34 @@ const getAllProducts = async (req, res) => {
   }
 };
 
-// Get single product by ID
+// Get product by ID
 const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid product ID",
+      });
+    }
+
+    const product = await Product.findById(id);
 
     if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+      return res.status(404).json({
+        message: "Product not found",
+      });
     }
 
     res.status(200).json(product);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Add new product
+// Add product
 const addProduct = async (req, res) => {
   try {
     const {
@@ -45,10 +58,12 @@ const addProduct = async (req, res) => {
       status,
     } = req.body;
 
-    // Check duplicate product code
     const existingProduct = await Product.findOne({ productCode });
+
     if (existingProduct) {
-      return res.status(400).json({ message: "Product code already exists" });
+      return res.status(400).json({
+        message: "Product code already exists",
+      });
     }
 
     const product = new Product({
@@ -64,12 +79,13 @@ const addProduct = async (req, res) => {
       status,
     });
 
-    const newProduct = await product.save();
+    const savedProduct = await product.save();
 
     res.status(201).json({
       message: "Product added successfully",
-      product: newProduct,
+      product: savedProduct,
     });
+
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -78,34 +94,31 @@ const addProduct = async (req, res) => {
 // Update product
 const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { id } = req.params;
 
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    // If productCode is being changed, check uniqueness
-    if (
-      req.body.productCode &&
-      req.body.productCode !== product.productCode
-    ) {
-      const existingProduct = await Product.findOne({
-        productCode: req.body.productCode,
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid product ID",
       });
-
-      if (existingProduct) {
-        return res.status(400).json({ message: "Product code already exists" });
-      }
     }
 
-    Object.assign(product, req.body);
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true }
+    );
 
-    const updatedProduct = await product.save();
+    if (!updatedProduct) {
+      return res.status(404).json({
+        message: "Product not found",
+      });
+    }
 
     res.status(200).json({
       message: "Product updated successfully",
       product: updatedProduct,
     });
+
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -114,19 +127,32 @@ const updateProduct = async (req, res) => {
 // Delete product
 const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
 
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid product ID",
+      });
     }
 
-    res.status(200).json({ message: "Product deleted successfully" });
+    const deletedProduct = await Product.findByIdAndDelete(id);
+
+    if (!deletedProduct) {
+      return res.status(404).json({
+        message: "Product not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Product deleted successfully",
+    });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Search products by product name or category
+// Search products
 const searchProducts = async (req, res) => {
   try {
     const keyword = req.query.keyword || "";
@@ -142,6 +168,7 @@ const searchProducts = async (req, res) => {
       count: products.length,
       products,
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
